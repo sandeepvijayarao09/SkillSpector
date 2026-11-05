@@ -41,6 +41,8 @@ SSRF1_ENDPOINT_PATTERNS = [
     (r"metadata\.google\.internal", 0.9),
     (r"100\.100\.100\.200", 0.85),  # Alibaba Cloud
     (r"fd00:ec2::254", 0.85),  # AWS IMDS over IPv6
+    (r"169\.254\.170\.(?:23|2)(?!\d)", 0.85),  # AWS ECS task / EKS Pod Identity credentials
+    (r"fd00:ec2::23\b", 0.85),  # AWS EKS Pod Identity credentials over IPv6
 ]
 SSRF1_PROSE_PATTERNS = [
     (

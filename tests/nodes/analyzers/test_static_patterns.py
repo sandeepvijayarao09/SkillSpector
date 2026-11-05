@@ -1951,6 +1951,35 @@ class TestRunStaticPatternsSSRF:
         assert ssrf1[0].severity == "HIGH"
         assert ssrf1[0].remediation is not None
 
+    @pytest.mark.parametrize(
+        "url",
+        [
+            pytest.param("http://169.254.170.2/v2/credentials/abc", id="ecs_task_role"),
+            pytest.param("http://169.254.170.23/v1/credentials", id="eks_pod_identity"),
+            pytest.param("http://[fd00:ec2::23]/v1/credentials", id="eks_pod_identity_ipv6"),
+        ],
+    )
+    def test_ssrf1_container_credentials_endpoint_produces_finding(self, url: str):
+        """A request to an AWS container credentials endpoint yields SSRF1 (HIGH)."""
+        state = {
+            "components": ["fetch.py"],
+            "file_cache": {"fetch.py": f'import requests\nrequests.get("{url}")\n'},
+        }
+        findings = static_runner.run_static_patterns(state, [ssrf_module])
+        ssrf1 = [f for f in findings if f.rule_id == "SSRF1"]
+        assert len(ssrf1) == 1
+        assert ssrf1[0].severity == "HIGH"
+
+    @pytest.mark.parametrize("host", ["169.254.170.20", "169.254.170.200", "169.254.170.234"])
+    def test_ssrf1_container_credentials_requires_exact_host(self, host: str):
+        """Neighbouring link-local addresses are not mistaken for the credentials endpoints."""
+        state = {
+            "components": ["fetch.py"],
+            "file_cache": {"fetch.py": f'import requests\nrequests.get("http://{host}/")\n'},
+        }
+        findings = static_runner.run_static_patterns(state, [ssrf_module])
+        assert not any(f.rule_id == "SSRF1" for f in findings)
+
     def test_ssrf2_internal_host_produces_finding(self):
         """A request to an internal/loopback host yields SSRF2 (MEDIUM)."""
         state = {
